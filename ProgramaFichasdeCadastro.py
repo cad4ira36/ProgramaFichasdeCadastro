@@ -1,0 +1,340 @@
+import io
+from tkinter import *
+from tkinter import ttk, filedialog, messagebox
+from PIL import Image
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
+
+
+# =========================================================
+#   GERAR PDF IDÊNTICO AO FORMULÁRIO
+# =========================================================
+def generate_pdf_bytes(data, pil_image=None):
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+
+    width, height = A4
+    left = 40
+    right = width - 40
+    top = height - 40
+
+    # Título
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(left, top, "FICHA DE CADASTRO (JOVEM)")
+    top -= 35
+
+    # FOTO 3x4
+    foto_x = right - 110
+    foto_y = top - 20
+    foto_w = 85
+    foto_h = 115
+
+    c.rect(foto_x, foto_y, foto_w, foto_h)
+
+    if pil_image:
+        try:
+            img_w, img_h = pil_image.size
+            ratio = min(foto_w / img_w, foto_h / img_h)
+            new_w = int(img_w * ratio)
+            new_h = int(img_h * ratio)
+            resized = pil_image.resize((new_w, new_h))
+
+            img_buf = io.BytesIO()
+            resized.save(img_buf, format="PNG")
+            img_buf.seek(0)
+
+            c.drawImage(
+                ImageReader(img_buf),
+                foto_x + (foto_w - new_w) / 2,
+                foto_y + (foto_h - new_h) / 2,
+                new_w,
+                new_h,
+            )
+        except:
+            pass
+
+    # Linha separadora
+    c.line(left, top - 5, right, top - 5)
+    top -= 25
+
+    def linha(label, valor, space=22):
+        nonlocal top
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(left, top, label)
+        c.setFont("Helvetica", 10)
+        c.drawString(left + 150, top, valor)
+        top -= space
+
+    # DADOS
+    linha("Nome completo:", data["nome_completo"])
+    linha("Apelido:", data["apelido"])
+    linha("Endereço:", data["endereco"])
+    linha("E-mail:", data["email"])
+    linha("Telefone 1:", data["tel1"])
+    linha("Telefone 2:", data["tel2"])
+    linha("Nascimento:", data["nascimento"])
+    linha("Naturalidade:", data["naturalidade"])
+    linha("Filiação - Pai:", data["pai"])
+    linha("Filiação - Mãe:", data["mae"])
+
+    # Linha separadora
+    c.line(left, top + 10, right, top + 10)
+    top -= 30
+
+    linha("Escolaridade:", data["escolaridade"])
+    linha("Situação (Ex.: Cursando, Concluído):", data["situacao"])
+    linha("Curso:", data["curso"])
+    linha("Instituição:", data["instituicao"])
+
+    # Linha separadora
+    c.line(left, top + 10, right, top + 10)
+    top -= 30
+
+    linha("Paróquia que frequenta:", data["paroquia"])
+
+    sacramentos = (
+        f"Batismo: {'Sim' if data['batismo'] else 'Não'}   "
+        f"Eucaristia: {'Sim' if data['eucaristia'] else 'Não'}   "
+        f"Crisma: {'Sim' if data['crisma'] else 'Não'}"
+    )
+    linha("Sacramentos:", sacramentos)
+
+    def bloco(label, texto, linhas=4):
+        nonlocal top
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(left, top, label)
+        top -= 14
+        c.setFont("Helvetica", 10)
+        t = c.beginText(left + 10, top)
+        t.setLeading(14)
+        for line in texto.split("\n"):
+            t.textLine(line)
+        c.drawText(t)
+        top -= (14 * linhas)
+        top -= 10
+
+    bloco("Participa(ou) de algum movimento da Igreja? Qual(is)?", data["movimentos"], 3)
+    linha("Horário disponível para as atividades do SEGUE-ME:", data["horario_disponivel"])
+    bloco("Qual Encontro de Jovens com Cristo - SEGUE-ME fez? (número, paróquia e ano)", data["encontro_feito"], 3)
+    linha("Toca algum instrumento musical? Qual(is)?", data["instrumentos"])
+    bloco("Já ministrou palestra/testemunho? (favor descreva-os)", data["palestras"], 4)
+    bloco("Cite todos os encontros SEGUE-ME que já trabalhou. (detalhar ano, paróquia, equipe, coordenador ou membro)", data["encontros_trabalhados"], 5)
+
+    # Cidade / Data
+    top -= 25
+    c.setFont("Helvetica", 10)
+    c.drawString(left, top, f"Cidade: {data['cidade']}")
+    c.drawString(left + 250, top, f"Data: {data['data_assinatura']}")
+
+    # ===== ASSINATURA 1 =====
+    top -= 60
+    linha_y = top
+    c.line(left, linha_y, right - 200, linha_y)
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(left, linha_y - 14, "Assinatura do seguidor")
+
+    # ===== ASSINATURA 2 =====
+    top -= 80
+    linha_y = top
+    c.line(left, linha_y, right - 200, linha_y)
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(left, linha_y - 14, "Assinatura do Jovem/Casal Montagem")
+
+    c.save()
+    buffer.seek(0)
+    return buffer.read()
+
+
+# =========================================================
+#   SALVAR PDF LOCALMENTE
+# =========================================================
+def salvar_pdf_localmente(pdf_bytes, filename="Ficha.pdf"):
+    caminho = filedialog.asksaveasfilename(
+        defaultextension=".pdf",
+        initialfile=filename,
+        filetypes=[("PDF", "*.pdf")],
+    )
+    if caminho:
+        with open(caminho, "wb") as f:
+            f.write(pdf_bytes)
+    return caminho
+
+
+# =========================================================
+#   INTERFACE TKINTER
+# =========================================================
+class App:
+    def __init__(self, root):
+        self.root = root
+        root.title("Programa de Fichas de Cadastro")
+        self.photo_pil = None
+
+        container = ttk.Frame(root)
+        canvas_frame = Canvas(container, width=820, height=700)
+        scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas_frame.yview)
+        self.form = ttk.Frame(canvas_frame)
+
+        container.pack(fill="both", expand=True)
+        canvas_frame.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        canvas_frame.create_window((0, 0), window=self.form, anchor="nw")
+        canvas_frame.configure(yscrollcommand=scrollbar.set)
+        self.form.bind("<Configure>", lambda e: canvas_frame.configure(scrollregion=canvas_frame.bbox("all")))
+
+        f = self.form
+        row = 0
+
+        def add(label, width=60):
+            nonlocal row
+            ttk.Label(f, text=label).grid(row=row, column=0, sticky="w", padx=5, pady=3)
+            ent = ttk.Entry(f, width=width)
+            ent.grid(row=row, column=1, sticky="w", padx=5, pady=3)
+            row += 1
+            return ent
+
+        # Dados
+        self.ent_nome = add("Nome completo:")
+        self.ent_apelido = add("Apelido:")
+        self.ent_end = add("Endereço:", 80)
+        self.ent_email = add("E-mail:")
+        self.ent_tel1 = add("Telefone 1:")
+        self.ent_tel2 = add("Telefone 2:")
+        self.ent_nasc = add("Nascimento (DD/MM/AAAA):")
+        self.ent_nat = add("Naturalidade:")
+        self.ent_pai = add("Filiação: Pai")
+        self.ent_mae = add("Filiação: Mãe")
+
+        self.ent_escolar = add("Escolaridade:")
+        self.ent_situacao = add("Situação (Ex.: Cursando, Concluído):")
+        self.ent_curso = add("Curso:")
+        self.ent_instit = add("Instituição:")
+        self.ent_paroquia = add("Paróquia que frequenta:")
+
+        # Sacramentos
+        ttk.Label(f, text="Sacramentos:").grid(row=row, column=0, sticky="nw")
+        sac = ttk.Frame(f)
+        sac.grid(row=row, column=1, sticky="w")
+        self.bat = IntVar()
+        self.euc = IntVar()
+        self.cri = IntVar()
+        ttk.Checkbutton(sac, text="Batismo", variable=self.bat).pack(side="left")
+        ttk.Checkbutton(sac, text="Eucaristia", variable=self.euc).pack(side="left")
+        ttk.Checkbutton(sac, text="Crisma", variable=self.cri).pack(side="left")
+        row += 1
+
+        # Campos grandes
+        def add_text(label, h):
+            nonlocal row
+            ttk.Label(f, text=label).grid(row=row, column=0, sticky="nw")
+            txt = Text(f, width=70, height=h)
+            txt.grid(row=row, column=1)
+            row += 1
+            return txt
+
+        self.txt_mov = add_text("Participa(ou) de algum movimento da Igreja? Qual(is)?", 3)
+        self.ent_horario = add("Horário disponível para as atividades do SEGUE-ME:")
+        self.txt_encontro = add_text("Qual Encontro de Jovens com Cristo - SEGUE-ME fez? (número, paróquia e ano)", 2)
+        self.ent_instr = add("Toca algum instrumento musical? Qual(is)?")
+        self.txt_palestra = add_text("Já ministrou palestra/testemunho? (favor descreva-os)", 3)
+        self.txt_trab = add_text("Cite todos os encontros SEGUE-ME que já trabalhou. (detalhar ano, paróquia, equipe, coordenador ou membro)", 4)
+
+        self.ent_cidade = add("Cidade:")
+        self.ent_data_ass = add("Data (DD/MM/AAAA):")
+
+        # Foto
+        ttk.Label(f, text="Foto 3x4:").grid(row=row, column=0)
+        ttk.Button(f, text="Selecionar foto", command=self.load_photo).grid(row=row, column=1)
+        row += 1
+
+        # Botões
+        btn_frame = ttk.Frame(f)
+        btn_frame.grid(row=row, column=0, columnspan=2, pady=20)
+        ttk.Button(btn_frame, text="Salvar PDF no computador", command=self.save_pdf).pack(side="left", padx=10)
+        ttk.Button(btn_frame, text="Limpar", command=self.clear).pack(side="left", padx=10)
+
+    # Carregar foto
+    def load_photo(self):
+        path = filedialog.askopenfilename(filetypes=[("Imagens", "*.png *.jpg *.jpeg")])
+        if path:
+            try:
+                self.photo_pil = Image.open(path).convert("RGB")
+                messagebox.showinfo("OK", "Foto carregada com sucesso!")
+            except:
+                messagebox.showerror("Erro", "Não foi possível abrir a imagem!")
+
+    # Coleta dos dados
+    def collect(self):
+        return {
+            "nome_completo": self.ent_nome.get(),
+            "apelido": self.ent_apelido.get(),
+            "endereco": self.ent_end.get(),
+            "email": self.ent_email.get(),
+            "tel1": self.ent_tel1.get(),
+            "tel2": self.ent_tel2.get(),
+            "nascimento": self.ent_nasc.get(),
+            "naturalidade": self.ent_nat.get(),
+            "pai": self.ent_pai.get(),
+            "mae": self.ent_mae.get(),
+            "escolaridade": self.ent_escolar.get(),
+            "situacao": self.ent_situacao.get(),
+            "curso": self.ent_curso.get(),
+            "instituicao": self.ent_instit.get(),
+            "paroquia": self.ent_paroquia.get(),
+            "batismo": bool(self.bat.get()),
+            "eucaristia": bool(self.euc.get()),
+            "crisma": bool(self.cri.get()),
+            "movimentos": self.txt_mov.get("1.0", END).strip(),
+            "horario_disponivel": self.ent_horario.get(),
+            "encontro_feito": self.txt_encontro.get("1.0", END).strip(),
+            "instrumentos": self.ent_instr.get(),
+            "palestras": self.txt_palestra.get("1.0", END).strip(),
+            "encontros_trabalhados": self.txt_trab.get("1.0", END).strip(),
+            "cidade": self.ent_cidade.get(),
+            "data_assinatura": self.ent_data_ass.get(),
+        }
+
+    # Salvar PDF
+    def save_pdf(self):
+        dados = self.collect()
+
+        if not dados["nome_completo"]:
+            messagebox.showwarning("Aviso", "Preencha o nome completo.")
+            return
+
+        try:
+            pdf = generate_pdf_bytes(dados, self.photo_pil)
+            nome = f"Ficha_{dados['nome_completo'].replace(' ', '_')}.pdf"
+            caminho = salvar_pdf_localmente(pdf, nome)
+            if caminho:
+                messagebox.showinfo("Sucesso", f"PDF salvo em:\n{caminho}")
+                self.clear()
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao gerar PDF:\n{e}")
+
+    def clear(self):
+        for w in [
+            self.ent_nome, self.ent_apelido, self.ent_end, self.ent_email,
+            self.ent_tel1, self.ent_tel2, self.ent_nasc, self.ent_nat,
+            self.ent_pai, self.ent_mae, self.ent_escolar, self.ent_situacao,
+            self.ent_curso, self.ent_instit, self.ent_paroquia,
+            self.ent_horario, self.ent_instr, self.ent_cidade, self.ent_data_ass
+        ]:
+            w.delete(0, END)
+
+        for t in [self.txt_mov, self.txt_encontro, self.txt_palestra, self.txt_trab]:
+            t.delete("1.0", END)
+
+        self.bat.set(0)
+        self.euc.set(0)
+        self.cri.set(0)
+        self.photo_pil = None
+
+
+# =========================================================
+#   EXECUTAR APP
+# =========================================================
+if __name__ == "__main__":
+    root = Tk()
+    App(root)
+    root.mainloop()
