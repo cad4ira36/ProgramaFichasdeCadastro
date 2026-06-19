@@ -41,7 +41,7 @@ CREATE TABLE Pastoral (
     nomePastoral VARCHAR(100) NOT NULL
     
 );
-CREATE TABLE Endereço(
+CREATE TABLE Endereco(
 	ID_endereco INT AUTO_INCREMENT PRIMARY KEY,
     cidade VARCHAR(40) NOT NULL,
     bairro VARCHAR(40) NOT NULL,
@@ -56,4 +56,66 @@ CREATE TABLE Responsavel(
 	ID_responsavel INT AUTO_INCREMENT PRIMARY KEY,
     nomeResponsavel VARCHAR(70) NOT NULL,
     TipoResponsavel VARCHAR(30) NOT NULL --Identificar se é pai/mãe/grau do responsavel
+);
+--CREATE TABLE paroquia_pastoral ( 
+  --  ID_relacionamento INT AUTO_INCREMENT PRIMARY KEY, 
+    --idParoquia INT NOT NULL, 
+    --idPastoral INT NOT NULL, 
+    --CONSTRAINT fk_paroquia FOREIGN KEY (idParoquia) REFERENCES Paroquia(id_paroquia), 
+    --CONSTRAINT fk_pastoral FOREIGN KEY (idPastoral) REFERENCES Pastoral(ID_pastoral) 
+);
+CREATE TABLE Jovem_palestra(
+    ID_relacionamento int AUTO_INCREMENT PRIMARY KEY,
+    idJovem int NOT NULL,
+    FOREIGN KEY (idJovem) REFERENCES Jovem(ID_jovem),
+
+    idPalestra int NOT NULL,
+    FOREIGN KEY (idPalestra) REFERENCES Palestra(ID_palestra) -- Referencia a chave primaria da tabela
+);
+CREATE TABLE Jovem_pastoral (
+    ID_relacionamento INT AUTO_INCREMENT PRIMARY KEY,
+
+    idPastoral INT NOT NULL,
+    FOREIGN KEY (idPastoral)
+        REFERENCES Pastoral(ID_pastoral),
+
+    idJovem INT NOT NULL,
+    FOREIGN KEY (idJovem)
+        REFERENCES Jovem(ID_jovem)
+);
+CREATE TABLE Telefone_jovem(
+	ID_relacionamento INT AUTO_INCREMENT PRIMARY KEY,
+    idTelefone INT NOT NULL,
+    FOREIGN KEY (idTelefone) REFERENCES Telefone(ID_telefone),
+    idJovem INT NOT NULL,
+    FOREIGN KEY(idJovem) REFERENCES Jovem(ID_jovem)
+);
+CREATE TABLE Endereco_jovem(
+	ID_relacionamento INT AUTO_INCREMENT PRIMARY KEY,
+    idEndereco INT NOT NULL,
+    FOREIGN KEY(idEndereco) REFERENCES Endereco(ID_endereco),
+    idJovem INT NOT NULL,
+    FOREIGN KEY(idJovem) REFERENCES Jovem(ID_jovem)
+);
+CREATE TABLE Jovem_responsavel(
+	ID_relacionamento INT AUTO_INCREMENT PRIMARY KEY,
+    idResponsavel INT NOT NULL,
+    FOREIGN KEY(idResponsavel) REFERENCES Responsavel(ID_responsavel),
+    idJovem INT NOT NULL,
+    FOREIGN KEY (idJovem) REFERENCES Jovem(ID_jovem)
+);
+CREATE TABLE Jovem_equipe(
+	ID_relacionamento INT AUTO_INCREMENT PRIMARY KEY,
+    cargoJovem VARCHAR(30) NOT NULL,
+    idEquipes INT NOT NULL,
+    FOREIGN KEY(idEquipes) REFERENCES Equipes(ID_equipe),
+    idJovem INT NOT NULL,
+    FOREIGN KEY (idJovem) REFERENCES Jovem(ID_jovem)
+);
+CREATE TABLE paroquia_pastoral(
+	ID_relacionamento INT AUTO_INCREMENT PRIMARY KEY,
+    idParoquia INT NOT NULL,
+    FOREIGN KEY (idParoquia) REFERENCES Paroquia(id_paroquia),
+    idPastoral INT NOT NULL,
+    FOREIGN KEY(idPastoral) REFERENCES Pastoral(ID_pastoral)
 );
